@@ -22,6 +22,12 @@
     @media (max-width: 1023px) {
       .day-cell { aspect-ratio: 1 / 1.1; height: auto !important; }
     }
+    /* モーダル表示中は背景スクロール禁止（iOS Safari対応） */
+    body.modal-open {
+      overflow: hidden;
+      position: fixed;
+      width: 100%;
+    }
   </style>
 </head>
 <body class="min-h-screen bg-gradient-to-br from-slate-100 to-indigo-50 text-slate-800 pb-20 lg:pb-6">

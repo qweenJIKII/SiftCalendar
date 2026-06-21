@@ -389,12 +389,21 @@ function openModal(d) {
 
   modal.classList.remove('hidden');
   modal.classList.add('flex');
+  // iOS Safari対応: スクロール位置を保持したまま body を固定
+  const scrollY = window.scrollY;
+  document.body.style.top = `-${scrollY}px`;
+  document.body.classList.add('modal-open');
 }
 
 function closeModal() {
   const modal = document.getElementById('day-modal');
   modal.classList.add('hidden');
   modal.classList.remove('flex');
+  // スクロール位置を復元
+  const scrollY = Math.abs(parseInt(document.body.style.top || '0', 10));
+  document.body.classList.remove('modal-open');
+  document.body.style.top = '';
+  window.scrollTo(0, scrollY);
 }
 
 function toggleTimeSection() {
