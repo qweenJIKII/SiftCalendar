@@ -52,8 +52,8 @@
 
     <div class="flex flex-col lg:flex-row gap-4 lg:gap-6">
 
-      <!-- ===== 左ペイン（PC）/ 上部コントロール（スマホ） ===== -->
-      <div class="lg:w-72 flex-shrink-0 space-y-3">
+      <!-- ===== 左ペイン（PC）/ 下部コントロール（スマホ） ===== -->
+      <div class="lg:w-72 flex-shrink-0 space-y-3 order-2 lg:order-1">
 
         <!-- ① スタンプ選択（横3ボタン・コンパクト） -->
         <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-3 lg:p-5">
@@ -192,7 +192,7 @@
       </div>
 
       <!-- ===== 右ペイン：カレンダー ===== -->
-      <div class="flex-1 bg-white rounded-2xl shadow-sm border border-slate-200 p-3 lg:p-5">
+      <div class="flex-1 bg-white rounded-2xl shadow-sm border border-slate-200 p-3 lg:p-5 order-1 lg:order-2">
         <div class="flex items-center justify-between mb-3">
           <button id="prev-month"
             class="w-10 h-10 flex items-center justify-center rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-100 active:bg-slate-200 transition text-xl font-bold">
