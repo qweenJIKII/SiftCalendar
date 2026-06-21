@@ -139,7 +139,7 @@ function renderCalendar() {
     const workMin = entry ? calcWorkMin(entry) : 0;
 
     const el = document.createElement('div');
-    let cls = 'relative flex flex-col items-center justify-start pt-1 h-16 rounded-lg border cursor-pointer select-none transition-all duration-150 ';
+    let cls = 'day-cell relative flex flex-col items-center justify-start pt-1 h-16 rounded-lg border cursor-pointer select-none transition-all duration-150 ';
 
     if (stampDef) {
       cls += `${stampDef.bg} ${stampDef.border} text-white shadow-md`;
@@ -280,23 +280,25 @@ function updateSidebar() {
   if (el('count-work'))    el('count-work').textContent    = `${counts.work} 日`;
   if (el('count-holiday')) el('count-holiday').textContent = `${counts.holiday} 日`;
   if (el('count-errand'))  el('count-errand').textContent  = `${counts.errand} 日`;
-  if (el('count-work-hours')) {
-    const h = Math.floor(totalWorkMin / 60);
-    const m = totalWorkMin % 60;
-    el('count-work-hours').textContent = m === 0 ? `${h}時間` : `${h}時間${m}分`;
-  }
+
+  const h = Math.floor(totalWorkMin / 60);
+  const m = totalWorkMin % 60;
+  const hoursLabel = m === 0 ? `${h}時間` : `${h}時間${m}分`;
+  const hoursShort = m === 0 ? `${h}h` : `${h}h${m}m`;
+  if (el('count-work-hours')) el('count-work-hours').textContent = hoursLabel;
 
   const wage = parseFloat(el('wage-input')?.value ?? settings.wage) || 0;
   const totalWorkH = totalWorkMin / 60;
   const est = totalWorkH * wage;
+  const estStr = `¥ ${Math.round(est).toLocaleString('ja-JP')}`;
 
-  if (el('salary-est')) {
-    el('salary-est').textContent = `¥ ${Math.round(est).toLocaleString('ja-JP')}`;
-  }
-  if (el('salary-detail')) {
-    el('salary-detail').textContent =
-      `${totalWorkH.toFixed(1)}h × ¥${wage.toLocaleString('ja-JP')}`;
-  }
+  if (el('salary-est'))    el('salary-est').textContent    = estStr;
+  if (el('salary-detail')) el('salary-detail').textContent = `${totalWorkH.toFixed(1)}h × ¥${wage.toLocaleString('ja-JP')}`;
+
+  // ボトムバー更新（スマホ専用）
+  if (el('salary-est-bar'))      el('salary-est-bar').textContent      = estStr;
+  if (el('count-work-bar'))      el('count-work-bar').textContent      = `${counts.work}日`;
+  if (el('count-work-hours-bar')) el('count-work-hours-bar').textContent = hoursShort;
 }
 
 // ===== 月切替 =====
@@ -381,6 +383,7 @@ function openModal(d) {
   document.getElementById('modal-break').value    = entry?.breakMin ?? settings.defBreak;
   document.getElementById('modal-memo').value     = entry?.memo     ?? '';
 
+  syncModalStampButtons();
   updateModalCalc();
   toggleTimeSection();
 
@@ -504,6 +507,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('modal-delete').addEventListener('click', deleteModal);
   document.getElementById('modal-close').addEventListener('click', closeModal);
   document.getElementById('modal-stamp').addEventListener('change', () => {
+    syncModalStampButtons();
     toggleTimeSection();
     updateModalCalc();
   });
@@ -511,8 +515,42 @@ document.addEventListener('DOMContentLoaded', () => {
     const el = document.getElementById(id);
     if (el) el.addEventListener('input', updateModalCalc);
   });
+  // モーダル内のスタンプ横並びボタン
+  document.querySelectorAll('.modal-stamp-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.getElementById('modal-stamp').value = btn.dataset.value;
+      syncModalStampButtons();
+      toggleTimeSection();
+      updateModalCalc();
+    });
+  });
   // モーダル背景クリックで閉じる
   document.getElementById('day-modal').addEventListener('click', e => {
     if (e.target === e.currentTarget) closeModal();
   });
+
+  // アコーディオン
+  document.querySelectorAll('.accordion-toggle').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const target = document.getElementById(btn.dataset.target);
+      const icon   = btn.querySelector('.accordion-icon');
+      const isOpen = target.classList.contains('open');
+      target.classList.toggle('open', !isOpen);
+      if (icon) icon.style.transform = isOpen ? '' : 'rotate(90deg)';
+    });
+  });
 });
+
+// ===== モーダル内スタンプボタン同期 =====
+function syncModalStampButtons() {
+  const val = document.getElementById('modal-stamp').value;
+  document.querySelectorAll('.modal-stamp-btn').forEach(btn => {
+    if (btn.dataset.value === val) {
+      btn.classList.remove('opacity-60');
+      btn.classList.add('ring-2', 'ring-offset-1', 'ring-slate-400', 'scale-105');
+    } else {
+      btn.classList.add('opacity-60');
+      btn.classList.remove('ring-2', 'ring-offset-1', 'ring-slate-400', 'scale-105');
+    }
+  });
+}
