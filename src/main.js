@@ -26,9 +26,11 @@ let settings = {
 };
 
 // ===== ドラッグ選択 state =====
-let isDragging   = false;
-let dragDays     = new Set();
-let dragStartDay = null;
+let isDragging       = false;  // ドラッグ確定済み（2マス以上移動した）
+let isDragPending    = false;  // mousedown/touchstart で押下中だがまだ確定していない
+let dragDays         = new Set();
+let dragStartDay     = null;
+let suppressNextClick = false; // touchend後のclick二重発火を防ぐ
 
 // ===== ユーティリティ =====
 function dateKey(year, month, day) {
@@ -109,6 +111,14 @@ function parseDays(text) {
   return [...result].sort((a, b) => a - b);
 }
 
+// ===== ドラッグ確定（2マス目に入った瞬間に開始マスも含めて適用） =====
+function startDragConfirmed() {
+  if (isDragging) return;
+  isDragging = true;
+  // 開始マスを適用
+  if (dragStartDay !== null) applyDragDay(dragStartDay);
+}
+
 // ===== ドラッグ選択：マスに適用 =====
 function applyDragDay(d) {
   if (dragDays.has(d)) return;
@@ -138,6 +148,7 @@ function applyDragDay(d) {
 }
 
 function endDrag() {
+  isDragPending = false;
   if (!isDragging) return;
   isDragging = false;
   if (dragDays.size > 0) {
@@ -255,66 +266,79 @@ function renderCalendar() {
       el.appendChild(delBtn);
     }
 
-    // ドラッグ開始（mousedown）
+    // 押下開始（確定前）
     el.addEventListener('mousedown', e => {
       if (e.button !== 0) return;
       e.preventDefault();
-      isDragging = true;
+      isDragPending = true;
+      isDragging = false;
       dragDays.clear();
       dragStartDay = d;
-      applyDragDay(d);
     });
 
-    // タッチ開始
     el.addEventListener('touchstart', e => {
-      isDragging = true;
+      isDragPending = true;
+      isDragging = false;
       dragDays.clear();
       dragStartDay = d;
-      applyDragDay(d);
     }, { passive: true });
 
-    // クリック：ドラッグなし（1マスのみ）→ プレビューを開く
-    el.addEventListener('click', e => {
-      if (dragDays.size <= 1 && !e._fromDrag) openPreview(d);
+    // click（PC用・touchendで処理済みの場合はスキップ）
+    el.addEventListener('click', () => {
+      if (suppressNextClick) { suppressNextClick = false; return; }
     });
 
     grid.appendChild(el);
   }
 
-  // グリッド全体でのmousemove/mouseup
+  // マウス移動：別マスに入ったらドラッグ確定
   grid.addEventListener('mousemove', e => {
-    if (!isDragging) return;
+    if (!isDragPending) return;
     const cell = e.target.closest('[data-day]');
-    if (cell) applyDragDay(parseInt(cell.dataset.day, 10));
+    if (!cell) return;
+    const d = parseInt(cell.dataset.day, 10);
+    if (d !== dragStartDay) {
+      startDragConfirmed();
+    }
+    if (isDragging) applyDragDay(d);
   });
 
   // タッチ移動
   grid.addEventListener('touchmove', e => {
-    if (!isDragging) return;
+    if (!isDragPending) return;
     const d = dayFromTouch(e.touches[0]);
-    if (d) applyDragDay(d);
+    if (d === null) return;
+    if (d !== dragStartDay) {
+      startDragConfirmed();
+    }
+    if (isDragging) applyDragDay(d);
   }, { passive: true });
 
   // タッチ終了
   grid.addEventListener('touchend', () => {
-    if (dragDays.size <= 1 && dragStartDay !== null) {
-      // タップ扱い → プレビューを開く
+    if (!isDragPending) return;
+    if (!isDragging && dragStartDay !== null) {
+      // タップ扱い（ドラッグ未確定）→ プレビューを開く
       const tappedDay = dragStartDay;
-      endDrag();
+      isDragPending = false;
+      dragStartDay = null;
+      suppressNextClick = true;  // 直後のclickを無視
       openPreview(tappedDay);
       return;
     }
     endDrag();
+    isDragPending = false;
   });
 }
 
 // mouseup はdocument全体で受け取る（グリッド外でも終了）
-document.addEventListener('mouseup', e => {
-  if (!isDragging) return;
-  if (dragDays.size <= 1 && dragStartDay !== null) {
-    // クリック扱い → プレビューを開く
+document.addEventListener('mouseup', () => {
+  if (!isDragPending) return;
+  if (!isDragging && dragStartDay !== null) {
+    // クリック扱い（ドラッグ未確定）→ プレビューを開く
     const tappedDay = dragStartDay;
-    endDrag();
+    isDragPending = false;
+    dragStartDay = null;
     openPreview(tappedDay);
     return;
   }
