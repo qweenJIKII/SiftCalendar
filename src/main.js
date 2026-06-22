@@ -934,48 +934,57 @@ function exportIcs() {
   const fmtDt = (y, mo, d, h, m) =>
     `${y}${pad(mo)}${pad(d)}T${pad(h)}${pad(m)}00`;
 
+  const addAllDay = (d, summary, description) => {
+    const next = new Date(currentYear, currentMonth - 1, d + 1);
+    const dtS  = `${currentYear}${pad(currentMonth)}${pad(d)}`;
+    const dtE  = `${next.getFullYear()}${pad(next.getMonth()+1)}${pad(next.getDate())}`;
+    return [
+      'BEGIN:VEVENT',
+      `DTSTART;VALUE=DATE:${dtS}`,
+      `DTEND;VALUE=DATE:${dtE}`,
+      `SUMMARY:${summary}`,
+      description ? `DESCRIPTION:${description}` : '',
+      'END:VEVENT',
+    ].filter(Boolean).join('\r\n') + '\r\n';
+  };
+
   let events = '';
   for (let d = 1; d <= daysInMonth; d++) {
-    const key   = dateKey(currentYear, currentMonth, d);
-    const entry = dayData[key];
-    if (!entry) continue;
-    const stampDef = STAMPS[entry.stamp];
-    const label    = stampDef ? stampDef.label : entry.stamp;
+    const key        = dateKey(currentYear, currentMonth, d);
+    const entry      = dayData[key];
+    const isHoliday  = HOLIDAYS.has(key);
+    const dow        = new Date(currentYear, currentMonth - 1, d).getDay();
 
-    let dtStart, dtEnd;
+    if (!entry) {
+      // 未登録 = 休日として出力（祝日・土日はその旨、平日は🏡休日）
+      if (isHoliday) {
+        events += addAllDay(d, '🎌 祝日');
+      } else if (dow === 0 || dow === 6) {
+        events += addAllDay(d, '🏡 休日');
+      } else {
+        events += addAllDay(d, '🏡 休日');
+      }
+      continue;
+    }
+
     if (entry.stamp === 'work') {
       const [sh, sm] = (entry.start || settings.defStart).split(':').map(Number);
       const [eh, em] = (entry.end   || settings.defEnd  ).split(':').map(Number);
-      dtStart = fmtDt(currentYear, currentMonth, d, sh, sm);
-      dtEnd   = fmtDt(currentYear, currentMonth, d, eh, em);
-    } else {
-      // 終日イベント
-      const next = new Date(currentYear, currentMonth - 1, d + 1);
-      dtStart = `${currentYear}${pad(currentMonth)}${pad(d)}`;
-      dtEnd   = `${next.getFullYear()}${pad(next.getMonth()+1)}${pad(next.getDate())}`;
+      const wMin = calcWorkMin(entry);
+      const desc = [`実働: ${minToLabel(wMin)}`, entry.memo || ''].filter(Boolean).join('\\n');
       events += [
         'BEGIN:VEVENT',
-        `DTSTART;VALUE=DATE:${dtStart}`,
-        `DTEND;VALUE=DATE:${dtEnd}`,
-        `SUMMARY:${label}`,
-        entry.memo ? `DESCRIPTION:${entry.memo.replace(/\n/g, '\\n')}` : '',
+        `DTSTART:${fmtDt(currentYear, currentMonth, d, sh, sm)}`,
+        `DTEND:${fmtDt(currentYear, currentMonth, d, eh, em)}`,
+        `SUMMARY:${STAMPS.work.label}`,
+        `DESCRIPTION:${desc}`,
         'END:VEVENT',
-      ].filter(Boolean).join('\r\n') + '\r\n';
-      continue;
+      ].join('\r\n') + '\r\n';
+    } else {
+      // 用事（終日）
+      const label = STAMPS[entry.stamp]?.label || entry.stamp;
+      events += addAllDay(d, label, entry.memo?.replace(/\n/g, '\\n') || '');
     }
-    const wMin = calcWorkMin(entry);
-    const desc = [
-      `実働: ${minToLabel(wMin)}`,
-      entry.memo || '',
-    ].filter(Boolean).join('\\n');
-    events += [
-      'BEGIN:VEVENT',
-      `DTSTART:${dtStart}`,
-      `DTEND:${dtEnd}`,
-      `SUMMARY:${label}`,
-      `DESCRIPTION:${desc}`,
-      'END:VEVENT',
-    ].join('\r\n') + '\r\n';
   }
 
   if (!events) { showToast('エクスポートするデータがありません'); return; }
