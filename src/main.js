@@ -299,8 +299,8 @@ function renderCalendar() {
       // 長押しタイマー起動
       if (longPressTimer) clearTimeout(longPressTimer);
       longPressTimer = setTimeout(() => {
+        console.log('[LP] timer fired, isDragging=', isDragging, 'isDragPending=', isDragPending);
         longPressTimer = null;
-        // この時点でまだ指が载っているならプレビューを開く
         if (!isDragging) {
           isDragPending = false;
           dragDays.clear();
@@ -309,10 +309,12 @@ function renderCalendar() {
           openPreview(d);
         }
       }, LONG_PRESS_MS);
+      console.log('[LP] touchstart d=', d, 'timer started');
     }, { passive: true });
 
     // touchcancel: コンテキストメニューなどでキャンセルされた場合はタイマーを継続（ドラッグもリセット）
     el.addEventListener('touchcancel', () => {
+      console.log('[LP] touchcancel');
       if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
       isDragPending = false;
       isDragging = false;
@@ -350,7 +352,7 @@ function renderCalendar() {
     if (Math.sqrt(dx * dx + dy * dy) < DRAG_THRESHOLD) return;
     const moved = dayFromTouch(t);
     if (moved === null || moved === dragStartDay) return;
-    // 別マスに入った → 長押しではなくドラッグ確定
+    console.log('[LP] touchmove to different cell, cancelling timer');
     if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
     startDragConfirmed();
     if (isDragging) applyDragDay(moved);
@@ -358,6 +360,7 @@ function renderCalendar() {
 
   // タッチ終了
   grid.addEventListener('touchend', () => {
+    console.log('[LP] touchend isDragPending=', isDragPending, 'timer=', longPressTimer, 'isDragging=', isDragging);
     if (!isDragPending) return;
     if (longPressTimer !== null) {
       // タイマーがまだ生きている = 短タップ → キャンセルして即入力
