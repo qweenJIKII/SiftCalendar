@@ -126,7 +126,6 @@ const SETTINGS_KEY   = 'sift_settings_v3';
 // ===== スタンプ定義 =====
 const STAMPS = {
   work:    { label: '💼 仕事',  bg: 'bg-indigo-500', border: 'border-indigo-600', hover: 'hover:bg-indigo-50 hover:border-indigo-300' },
-  holiday: { label: '🏖️ 公休',  bg: 'bg-emerald-500', border: 'border-emerald-600', hover: 'hover:bg-emerald-50 hover:border-emerald-300' },
   errand:  { label: '📝 用事',  bg: 'bg-amber-500',   border: 'border-amber-600',   hover: 'hover:bg-amber-50 hover:border-amber-300' },
 };
 
@@ -389,23 +388,25 @@ function renderCalendar() {
     let cls = 'day-cell relative flex flex-col items-center justify-start pt-1 rounded-lg border cursor-pointer select-none transition-all duration-150 ';
 
     if (isWorkPast) {
-      // 過去の仕事マス：くすんだ青紫。祝日なら枠だけオレンジ
       cls += isHoliday
         ? 'bg-indigo-200 border-orange-400 text-indigo-700 shadow-sm'
         : 'bg-indigo-200 border-indigo-300 text-indigo-700 shadow-sm';
     } else if (stampDef) {
-      // スタンプあり。祝日なら枠だけオレンジに上書き
       cls += isHoliday
         ? `${stampDef.bg} border-orange-400 text-white shadow-md`
         : `${stampDef.bg} ${stampDef.border} text-white shadow-md`;
     } else if (isHoliday) {
+      // 祝日（未登録）
       cls += 'bg-orange-50 border-orange-300 text-red-500 hover:bg-orange-100';
     } else if (isSun) {
-      cls += 'bg-red-50 border-red-200 text-red-500 hover:bg-red-100';
+      // 日曜（未登録）= 休日扱い
+      cls += 'bg-red-50 border-red-200 text-red-400 hover:bg-red-100';
     } else if (isSat) {
-      cls += 'bg-blue-50 border-blue-200 text-blue-500 hover:bg-blue-100';
+      // 土曜（未登録）= 休日扱い
+      cls += 'bg-blue-50 border-blue-200 text-blue-400 hover:bg-blue-100';
     } else {
-      cls += `bg-white border-slate-200 text-slate-700 ${STAMPS[activeStamp].hover}`;
+      // 平日（未登録）= 休日扱い：薄緑
+      cls += `bg-emerald-50 border-emerald-200 text-emerald-600 ${STAMPS[activeStamp].hover}`;
     }
     el.className = cls;
     el.dataset.day = d;
@@ -651,16 +652,19 @@ function updateSidebar() {
   const prefix = `${currentYear}-${String(currentMonth).padStart(2,'0')}-`;
   const monthEntries = Object.entries(dayData).filter(([k]) => k.startsWith(prefix));
 
-  const counts   = { work: 0, holiday: 0, errand: 0 };
+  const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
+  const counts   = { work: 0, errand: 0 };
   let totalWorkMin = 0;
   monthEntries.forEach(([, v]) => {
     if (counts[v.stamp] !== undefined) counts[v.stamp]++;
     totalWorkMin += calcWorkMin(v);
   });
+  // 空白日（仕事・用事以外）を休日としてカウント
+  const countHoliday = daysInMonth - counts.work - counts.errand;
 
   const el = id => document.getElementById(id);
   if (el('count-work'))    el('count-work').textContent    = `${counts.work} 日`;
-  if (el('count-holiday')) el('count-holiday').textContent = `${counts.holiday} 日`;
+  if (el('count-holiday')) el('count-holiday').textContent = `${countHoliday} 日`;
   if (el('count-errand'))  el('count-errand').textContent  = `${counts.errand} 日`;
 
   const h = Math.floor(totalWorkMin / 60);
