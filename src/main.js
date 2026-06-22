@@ -252,20 +252,30 @@ function renderCalendar() {
     const isSat    = dow === 5;
     const isSun    = dow === 6;
     const isHoliday = HOLIDAYS.has(key);
-    const isPast   = key < todayKey;
-    const isWorkPast = stamp === 'work' && isPast;
+    // 過去判定：仕事の場合は終了時刻を過ぎたら、それ以外は日付が過ぎたら
+    let isWorkPast = false;
+    if (stamp === 'work') {
+      const endTime = entry?.end || settings.defEnd;
+      const [eh, em] = endTime.split(':').map(Number);
+      const endDate = new Date(currentYear, currentMonth - 1, d, eh, em);
+      isWorkPast = endDate < today;
+    }
     const workMin  = entry ? calcWorkMin(entry) : 0;
 
     const el = document.createElement('div');
     let cls = 'day-cell relative flex flex-col items-center justify-start pt-1 rounded-lg border cursor-pointer select-none transition-all duration-150 ';
 
     if (isWorkPast) {
-      // 過去の仕事マス：くすんだ青紫
-      cls += 'bg-indigo-200 border-indigo-300 text-indigo-700 shadow-sm';
+      // 過去の仕事マス：くすんだ青紫。祝日なら枠だけオレンジ
+      cls += isHoliday
+        ? 'bg-indigo-200 border-orange-400 text-indigo-700 shadow-sm'
+        : 'bg-indigo-200 border-indigo-300 text-indigo-700 shadow-sm';
     } else if (stampDef) {
-      cls += `${stampDef.bg} ${stampDef.border} text-white shadow-md`;
+      // スタンプあり。祝日なら枠だけオレンジに上書き
+      cls += isHoliday
+        ? `${stampDef.bg} border-orange-400 text-white shadow-md`
+        : `${stampDef.bg} ${stampDef.border} text-white shadow-md`;
     } else if (isHoliday) {
-      // 祝日：枠をオレンジ系に
       cls += 'bg-orange-50 border-orange-300 text-red-500 hover:bg-orange-100';
     } else if (isSun) {
       cls += 'bg-red-50 border-red-200 text-red-500 hover:bg-red-100';
@@ -290,9 +300,10 @@ function renderCalendar() {
       el.appendChild(icon);
     }
 
-    if (isHoliday && !stampDef) {
+    if (isHoliday) {
       const hLabel = document.createElement('span');
-      hLabel.className = 'text-[9px] font-bold leading-none mt-0.5 text-orange-500';
+      // スタンプあり時は白文字、なしはオレンジ
+      hLabel.className = `text-[9px] font-bold leading-none mt-0.5 ${stampDef ? 'text-orange-200' : 'text-orange-500'}`;
       hLabel.textContent = '祝';
       el.appendChild(hLabel);
     }
