@@ -262,44 +262,27 @@ function renderCalendar() {
         e.stopPropagation();
         deleteDay(d);
       });
-      // スマホ：touchstart で親のtouchstartを止めて削除実行
-      delBtn.addEventListener('touchstart', e => {
+      delBtn.addEventListener('pointerdown', e => {
         e.stopPropagation();
         e.preventDefault();
         deleteDay(d);
-      }, { passive: false });
+      });
       el.appendChild(delBtn);
     }
 
-    // --- マウス操作 ---
-    el.addEventListener('mousedown', e => {
-      if (e.button !== 0) return;
+    // --- Pointer Events（マウス・タッチ・スタイラス統一） ---
+    el.addEventListener('pointerdown', e => {
+      if (e.button !== 0 && e.pointerType === 'mouse') return;
       e.preventDefault();
+      el.setPointerCapture(e.pointerId);
       isDragPending = true;
       isDragging = false;
       dragDays.clear();
       dragStartDay = d;
-      // 長押しタイマー起動
-      longPressTimer = setTimeout(() => {
-        longPressTimer = null;
-        isDragPending = false;
-        dragStartDay = null;
-        openPreview(d);
-      }, LONG_PRESS_MS);
-    });
-
-    // --- タッチ操作 ---
-    el.addEventListener('touchstart', e => {
-      isDragPending = true;
-      isDragging = false;
-      dragDays.clear();
-      dragStartDay = d;
-      touchStartX = e.touches[0].clientX;
-      touchStartY = e.touches[0].clientY;
-      // 長押しタイマー起動
+      touchStartX = e.clientX;
+      touchStartY = e.clientY;
       if (longPressTimer) clearTimeout(longPressTimer);
       longPressTimer = setTimeout(() => {
-        console.log('[LP] timer fired, isDragging=', isDragging, 'isDragPending=', isDragPending);
         longPressTimer = null;
         if (!isDragging) {
           isDragPending = false;
@@ -309,62 +292,32 @@ function renderCalendar() {
           openPreview(d);
         }
       }, LONG_PRESS_MS);
-      console.log('[LP] touchstart d=', d, 'timer started');
-    }, { passive: true });
-
-    // touchcancel: コンテキストメニューなどでキャンセルされた場合はタイマーを継続（ドラッグもリセット）
-    el.addEventListener('touchcancel', () => {
-      console.log('[LP] touchcancel - timer kept alive:', longPressTimer !== null);
-      // タイマーはキャンセルしない（長押し発火を維持）
-      // ドラッグ中だった場合だけリセット
-      if (isDragging) {
-        isDragging = false;
-        dragDays.clear();
-      }
-    }, { passive: true });
-
-    // click: PC用タップ（長押し・ドラッグでなければ即入力）
-    el.addEventListener('click', () => {
-      if (suppressNextClick) { suppressNextClick = false; return; }
     });
 
     grid.appendChild(el);
   }
 
-  // マウス移動：別マスに入ったらドラッグ確定
-  grid.addEventListener('mousemove', e => {
+  // pointermove: 別マスに入ったらドラッグ確定、距離閾値内はタイマー維持
+  grid.addEventListener('pointermove', e => {
     if (!isDragPending) return;
-    if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
-    const cell = e.target.closest('[data-day]');
-    if (!cell) return;
-    const d = parseInt(cell.dataset.day, 10);
-    if (d !== dragStartDay) {
-      startDragConfirmed();
-    }
-    if (isDragging) applyDragDay(d);
-  });
-
-  // タッチ移動（実際に別マスに入ったときだけドラッグ確定＆タイマーキャンセル）
-  grid.addEventListener('touchmove', e => {
-    if (!isDragPending) return;
-    const t = e.touches[0];
-    const dx = t.clientX - touchStartX;
-    const dy = t.clientY - touchStartY;
+    const dx = e.clientX - touchStartX;
+    const dy = e.clientY - touchStartY;
     if (Math.sqrt(dx * dx + dy * dy) < DRAG_THRESHOLD) return;
-    const moved = dayFromTouch(t);
-    if (moved === null || moved === dragStartDay) return;
-    console.log('[LP] touchmove to different cell, cancelling timer');
+    const cell = document.elementFromPoint(e.clientX, e.clientY)?.closest('[data-day]');
+    if (!cell) return;
+    const moved = parseInt(cell.dataset.day, 10);
+    if (moved === dragStartDay) return;
+    // 別マスへ移動 → 長押しではなくドラッグ
     if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
     startDragConfirmed();
     if (isDragging) applyDragDay(moved);
-  }, { passive: true });
+  });
 
-  // タッチ終了
-  grid.addEventListener('touchend', () => {
-    console.log('[LP] touchend isDragPending=', isDragPending, 'timer=', longPressTimer, 'isDragging=', isDragging);
+  // pointerup: 離した
+  grid.addEventListener('pointerup', () => {
     if (!isDragPending && longPressTimer === null) return;
     if (longPressTimer !== null) {
-      // タイマーがまだ生きている = 短タップ → キャンセルして即入力
+      // タイマーまだ生き → 短タップ → 即入力
       clearTimeout(longPressTimer);
       longPressTimer = null;
       if (!isDragging && dragStartDay !== null) {
@@ -376,31 +329,17 @@ function renderCalendar() {
         return;
       }
     }
-    // タイマーが null = 長押し発火済み or ドラッグ中
+    if (isDragging) endDrag();
+    isDragPending = false;
+  });
+
+  // pointercancel: タイマーはそのまま維持（長押し発火を妨げない）
+  grid.addEventListener('pointercancel', () => {
     if (isDragging) endDrag();
     isDragPending = false;
   });
 }
 
-// mouseup はdocument全体で受け取る
-document.addEventListener('mouseup', () => {
-  if (!isDragPending) return;
-  if (longPressTimer !== null) {
-    // タイマーまだ生きている = 短クリック → 即入力
-    clearTimeout(longPressTimer);
-    longPressTimer = null;
-    if (!isDragging && dragStartDay !== null) {
-      const tappedDay = dragStartDay;
-      isDragPending = false;
-      dragStartDay = null;
-      applyStampSingle(tappedDay);
-      return;
-    }
-  }
-  // タイマーが null = 長押し発火済み or ドラッグ中
-  if (isDragging) endDrag();
-  isDragPending = false;
-});
 
 // ===== 1マス即座スタンプ入力 =====
 function applyStampSingle(d) {
