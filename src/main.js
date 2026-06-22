@@ -240,6 +240,12 @@ function renderCalendar() {
         e.stopPropagation();
         deleteDay(d);
       });
+      // スマホ：touchstart で親のtouchstartを止めて削除実行
+      delBtn.addEventListener('touchstart', e => {
+        e.stopPropagation();
+        e.preventDefault();
+        deleteDay(d);
+      }, { passive: false });
       el.appendChild(delBtn);
     }
 
