@@ -192,7 +192,7 @@ function renderCalendar() {
     const workMin = entry ? calcWorkMin(entry) : 0;
 
     const el = document.createElement('div');
-    let cls = 'day-cell relative flex flex-col items-center justify-start pt-1 h-16 rounded-lg border cursor-pointer select-none transition-all duration-150 ';
+    let cls = 'day-cell relative flex flex-col items-center justify-start pt-1 h-16 rounded-lg border cursor-pointer select-none overflow-hidden transition-all duration-150 ';
 
     if (stampDef) {
       cls += `${stampDef.bg} ${stampDef.border} text-white shadow-md`;

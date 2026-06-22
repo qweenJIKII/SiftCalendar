@@ -18,9 +18,15 @@
     .accordion-body.open {
       display: block;
     }
-    /* スマホ：カレンダーマスを正方形に近く */
+    /* スマホ：カレンダーマスをaspect-ratioで高さ固定、内容ははみ出させない */
     @media (max-width: 1023px) {
-      .day-cell { aspect-ratio: 1 / 1.1; height: auto !important; }
+      .day-cell {
+        aspect-ratio: 1 / 1.15;
+        height: auto !important;
+        min-height: 0 !important;
+        max-height: none;
+        overflow: hidden !important;
+      }
     }
     /* モーダル表示中は背景スクロール禁止（iOS Safari対応） */
     body.modal-open {
