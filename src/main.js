@@ -314,12 +314,13 @@ function renderCalendar() {
 
     // touchcancel: コンテキストメニューなどでキャンセルされた場合はタイマーを継続（ドラッグもリセット）
     el.addEventListener('touchcancel', () => {
-      console.log('[LP] touchcancel');
-      if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
-      isDragPending = false;
-      isDragging = false;
-      dragDays.clear();
-      dragStartDay = null;
+      console.log('[LP] touchcancel - timer kept alive:', longPressTimer !== null);
+      // タイマーはキャンセルしない（長押し発火を維持）
+      // ドラッグ中だった場合だけリセット
+      if (isDragging) {
+        isDragging = false;
+        dragDays.clear();
+      }
     }, { passive: true });
 
     // click: PC用タップ（長押し・ドラッグでなければ即入力）
@@ -361,7 +362,7 @@ function renderCalendar() {
   // タッチ終了
   grid.addEventListener('touchend', () => {
     console.log('[LP] touchend isDragPending=', isDragPending, 'timer=', longPressTimer, 'isDragging=', isDragging);
-    if (!isDragPending) return;
+    if (!isDragPending && longPressTimer === null) return;
     if (longPressTimer !== null) {
       // タイマーがまだ生きている = 短タップ → キャンセルして即入力
       clearTimeout(longPressTimer);
