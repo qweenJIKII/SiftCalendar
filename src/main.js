@@ -26,11 +26,14 @@ let settings = {
 };
 
 // ===== ドラッグ選択 state =====
-let isDragging       = false;  // ドラッグ確定済み（2マス以上移動した）
-let isDragPending    = false;  // mousedown/touchstart で押下中だがまだ確定していない
-let dragDays         = new Set();
-let dragStartDay     = null;
-let suppressNextClick = false; // touchend後のclick二重発火を防ぐ
+let isDragging        = false;
+let isDragPending     = false;
+let dragDays          = new Set();
+let dragStartDay      = null;
+let suppressNextClick = false;
+let touchStartX       = 0;
+let touchStartY       = 0;
+const DRAG_THRESHOLD  = 12;
 
 // ===== ユーティリティ =====
 function dateKey(year, month, day) {
@@ -281,6 +284,8 @@ function renderCalendar() {
       isDragging = false;
       dragDays.clear();
       dragStartDay = d;
+      touchStartX = e.touches[0].clientX;
+      touchStartY = e.touches[0].clientY;
     }, { passive: true });
 
     // click（PC用・touchendで処理済みの場合はスキップ）
@@ -303,15 +308,17 @@ function renderCalendar() {
     if (isDragging) applyDragDay(d);
   });
 
-  // タッチ移動
+  // タッチ移動（距離閾値を超えてから別マスに入ったときだけドラッグ確定）
   grid.addEventListener('touchmove', e => {
     if (!isDragPending) return;
-    const d = dayFromTouch(e.touches[0]);
-    if (d === null) return;
-    if (d !== dragStartDay) {
-      startDragConfirmed();
-    }
-    if (isDragging) applyDragDay(d);
+    const t = e.touches[0];
+    const dx = t.clientX - touchStartX;
+    const dy = t.clientY - touchStartY;
+    if (Math.sqrt(dx * dx + dy * dy) < DRAG_THRESHOLD) return;
+    const moved = dayFromTouch(t);
+    if (moved === null) return;
+    if (moved !== dragStartDay) startDragConfirmed();
+    if (isDragging) applyDragDay(moved);
   }, { passive: true });
 
   // タッチ終了
