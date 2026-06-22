@@ -345,36 +345,44 @@ function renderCalendar() {
 
   // タッチ終了
   grid.addEventListener('touchend', () => {
-    if (!isDragPending && longPressTimer === null) return;
-    // 長押しタイマーキャンセル
-    if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
-    if (!isDragging && dragStartDay !== null) {
-      // タップ：即座にスタンプ入力
-      const tappedDay = dragStartDay;
-      isDragPending = false;
-      dragStartDay = null;
-      suppressNextClick = true;
-      applyStampSingle(tappedDay);
-      return;
+    if (!isDragPending) return;
+    if (longPressTimer !== null) {
+      // タイマーがまだ生きている = 短タップ → キャンセルして即入力
+      clearTimeout(longPressTimer);
+      longPressTimer = null;
+      if (!isDragging && dragStartDay !== null) {
+        const tappedDay = dragStartDay;
+        isDragPending = false;
+        dragStartDay = null;
+        suppressNextClick = true;
+        applyStampSingle(tappedDay);
+        return;
+      }
     }
-    endDrag();
+    // タイマーが null = 長押し発火済み or ドラッグ中
+    if (isDragging) endDrag();
     isDragPending = false;
   });
 }
 
 // mouseup はdocument全体で受け取る
 document.addEventListener('mouseup', () => {
-  if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
   if (!isDragPending) return;
-  if (!isDragging && dragStartDay !== null) {
-    // クリック：即座にスタンプ入力
-    const tappedDay = dragStartDay;
-    isDragPending = false;
-    dragStartDay = null;
-    applyStampSingle(tappedDay);
-    return;
+  if (longPressTimer !== null) {
+    // タイマーまだ生きている = 短クリック → 即入力
+    clearTimeout(longPressTimer);
+    longPressTimer = null;
+    if (!isDragging && dragStartDay !== null) {
+      const tappedDay = dragStartDay;
+      isDragPending = false;
+      dragStartDay = null;
+      applyStampSingle(tappedDay);
+      return;
+    }
   }
-  endDrag();
+  // タイマーが null = 長押し発火済み or ドラッグ中
+  if (isDragging) endDrag();
+  isDragPending = false;
 });
 
 // ===== 1マス即座スタンプ入力 =====
