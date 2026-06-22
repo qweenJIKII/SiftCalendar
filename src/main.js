@@ -566,6 +566,7 @@ function openPreview(d) {
   const scrollY = window.scrollY;
   document.body.style.top = `-${scrollY}px`;
   document.body.classList.add('modal-open');
+  preview._openedAt = Date.now(); // 開いた時刻を記録
 }
 
 function closePreview() {
@@ -740,7 +741,10 @@ document.addEventListener('DOMContentLoaded', () => {
     deleteDay(d);
   });
   document.getElementById('day-preview').addEventListener('click', e => {
-    if (e.target === e.currentTarget) closePreview();
+    if (e.target !== e.currentTarget) return;
+    const openedAt = e.currentTarget._openedAt || 0;
+    if (Date.now() - openedAt < 350) return; // touchend直後のclickを無視
+    closePreview();
   });
 
   // モーダルイベント
