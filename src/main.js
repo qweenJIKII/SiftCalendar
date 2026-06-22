@@ -52,15 +52,34 @@ function initFirebaseAuth() {
       fbDbRef = fbDb.ref(`users/${fbUid}/dayData`);
       if (!fbListening) {
         fbListening = true;
-        fbDbRef.on('value', snapshot => {
+
+        // 初回のみ：DBとlocalStorageをマージしてDBを正とする
+        fbDbRef.once('value').then(snapshot => {
           const remote = snapshot.val();
-          if (remote) {
-            dayData = remote;
-            // localStorageにもキャッシュ
+          const local  = dayData; // loadData()で読み込み済み
+
+          if (remote && Object.keys(remote).length > 0) {
+            // DBにデータあり → DBとローカルをマージ（DBが新しいキーを優先）
+            const merged = Object.assign({}, local, remote);
+            dayData = merged;
             localStorage.setItem(STORAGE_KEY, JSON.stringify(dayData));
+            // マージ結果をDBにも書き戻す
+            fbDbRef.set(merged);
+          } else if (Object.keys(local).length > 0) {
+            // DBが空でローカルにデータあり → ローカルをDBにアップロード
+            fbDbRef.set(local);
           }
-          renderCalendar();
-          updateSidebar();
+
+          // 以降はonValueでリアルタイム監視
+          fbDbRef.on('value', snap => {
+            const val = snap.val();
+            if (val) {
+              dayData = val;
+              localStorage.setItem(STORAGE_KEY, JSON.stringify(dayData));
+            }
+            renderCalendar();
+            updateSidebar();
+          });
         });
       }
       showToast(`${user.displayName} でログインしました`);
