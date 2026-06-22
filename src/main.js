@@ -297,15 +297,27 @@ function renderCalendar() {
       touchStartX = e.touches[0].clientX;
       touchStartY = e.touches[0].clientY;
       // 長押しタイマー起動
+      if (longPressTimer) clearTimeout(longPressTimer);
       longPressTimer = setTimeout(() => {
         longPressTimer = null;
-        isDragPending = false;
-        isDragging = false;
-        dragDays.clear();
-        dragStartDay = null;
-        suppressNextClick = true;
-        openPreview(d);
+        // この時点でまだ指が载っているならプレビューを開く
+        if (!isDragging) {
+          isDragPending = false;
+          dragDays.clear();
+          dragStartDay = null;
+          suppressNextClick = true;
+          openPreview(d);
+        }
       }, LONG_PRESS_MS);
+    }, { passive: true });
+
+    // touchcancel: コンテキストメニューなどでキャンセルされた場合はタイマーを継続（ドラッグもリセット）
+    el.addEventListener('touchcancel', () => {
+      if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+      isDragPending = false;
+      isDragging = false;
+      dragDays.clear();
+      dragStartDay = null;
     }, { passive: true });
 
     // click: PC用タップ（長押し・ドラッグでなければ即入力）
