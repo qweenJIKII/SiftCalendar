@@ -9,6 +9,25 @@ const STAMPS = {
   errand:  { label: '📝 用事',  bg: 'bg-amber-500',   border: 'border-amber-600',   hover: 'hover:bg-amber-50 hover:border-amber-300' },
 };
 
+// ===== 日本祝日 (2025-2027) =====
+const HOLIDAYS = new Set([
+  // 2025
+  '2025-01-01','2025-01-13','2025-02-11','2025-02-23','2025-02-24',
+  '2025-03-20','2025-04-29','2025-05-03','2025-05-04','2025-05-05','2025-05-06',
+  '2025-07-21','2025-08-11','2025-09-15','2025-09-22','2025-09-23',
+  '2025-10-13','2025-11-03','2025-11-23','2025-11-24',
+  // 2026
+  '2026-01-01','2026-01-12','2026-02-11','2026-02-23',
+  '2026-03-20','2026-04-29','2026-05-03','2026-05-04','2026-05-05','2026-05-06',
+  '2026-07-20','2026-08-11','2026-09-21','2026-09-22','2026-09-23',
+  '2026-10-12','2026-11-03','2026-11-23',
+  // 2027
+  '2027-01-01','2027-01-11','2027-02-11','2027-02-23',
+  '2027-03-21','2027-03-22','2027-04-29','2027-05-03','2027-05-04','2027-05-05',
+  '2027-07-19','2027-08-11','2027-09-20','2027-09-23',
+  '2027-10-11','2027-11-03','2027-11-23',
+]);
+
 // ===== state =====
 let currentYear  = 2026;
 let currentMonth = 6;
@@ -221,21 +240,33 @@ function renderCalendar() {
     grid.appendChild(el);
   }
 
+  const today = new Date();
+  const todayKey = dateKey(today.getFullYear(), today.getMonth() + 1, today.getDate());
+
   for (let d = 1; d <= daysInMonth; d++) {
-    const key     = dateKey(currentYear, currentMonth, d);
-    const entry   = dayData[key] || null;
-    const stamp   = entry?.stamp || null;
+    const key      = dateKey(currentYear, currentMonth, d);
+    const entry    = dayData[key] || null;
+    const stamp    = entry?.stamp || null;
     const stampDef = stamp ? STAMPS[stamp] : null;
-    const dow     = (startOffset + d - 1) % 7;
-    const isSat   = dow === 5;
-    const isSun   = dow === 6;
-    const workMin = entry ? calcWorkMin(entry) : 0;
+    const dow      = (startOffset + d - 1) % 7;
+    const isSat    = dow === 5;
+    const isSun    = dow === 6;
+    const isHoliday = HOLIDAYS.has(key);
+    const isPast   = key < todayKey;
+    const isWorkPast = stamp === 'work' && isPast;
+    const workMin  = entry ? calcWorkMin(entry) : 0;
 
     const el = document.createElement('div');
     let cls = 'day-cell relative flex flex-col items-center justify-start pt-1 rounded-lg border cursor-pointer select-none transition-all duration-150 ';
 
-    if (stampDef) {
+    if (isWorkPast) {
+      // 過去の仕事マス：くすんだ青紫
+      cls += 'bg-indigo-200 border-indigo-300 text-indigo-700 shadow-sm';
+    } else if (stampDef) {
       cls += `${stampDef.bg} ${stampDef.border} text-white shadow-md`;
+    } else if (isHoliday) {
+      // 祝日：枠をオレンジ系に
+      cls += 'bg-orange-50 border-orange-300 text-red-500 hover:bg-orange-100';
     } else if (isSun) {
       cls += 'bg-red-50 border-red-200 text-red-500 hover:bg-red-100';
     } else if (isSat) {
@@ -253,11 +284,17 @@ function renderCalendar() {
     el.appendChild(dayNum);
 
     if (stampDef) {
-      // アイコンのみ（ラベルなし）
       const icon = document.createElement('span');
       icon.className = 'text-base leading-none mt-1';
-      icon.textContent = stampDef.label.split(' ')[0]; // 絵文字だけ
+      icon.textContent = stampDef.label.split(' ')[0];
       el.appendChild(icon);
+    }
+
+    if (isHoliday && !stampDef) {
+      const hLabel = document.createElement('span');
+      hLabel.className = 'text-[9px] font-bold leading-none mt-0.5 text-orange-500';
+      hLabel.textContent = '祝';
+      el.appendChild(hLabel);
     }
 
     // 仕事：実働時間
