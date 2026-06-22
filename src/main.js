@@ -122,13 +122,17 @@ function applyDragDay(d) {
     breakMin: existing.breakMin ?? settings.defBreak,
     memo:     existing.memo     ?? '',
   };
-  // リアルタイムでそのマスだけ色更新
+  // リアルタイムでそのマスだけ色更新（色クラスのみ安全に差し替え）
   const cell = document.querySelector(`[data-day="${d}"]`);
   if (cell) {
+    // 既存の色・ボーダー系クラスを除去
+    const remove = [];
+    cell.classList.forEach(c => {
+      if (/^(bg-|border-|text-|shadow-|opacity-)/.test(c)) remove.push(c);
+    });
+    cell.classList.remove(...remove);
+    // スタンプ色を追加
     const s = STAMPS[activeStamp];
-    cell.className = cell.className
-      .replace(/bg-\S+/g, '').replace(/border-\S+/g, '').replace(/text-\S+/g, '')
-      .trim();
     cell.classList.add(...`${s.bg} ${s.border} text-white shadow-md`.split(' '));
   }
 }
