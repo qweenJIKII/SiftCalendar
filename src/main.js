@@ -206,19 +206,21 @@ function renderCalendar() {
     el.className = cls;
     el.dataset.day = d;
 
+    // 日付
     const dayNum = document.createElement('span');
     dayNum.className = 'text-sm font-bold leading-none mt-0.5';
     dayNum.textContent = d;
     el.appendChild(dayNum);
 
     if (stampDef) {
-      const badge = document.createElement('span');
-      badge.className = 'text-[10px] leading-tight text-center px-0.5 mt-1';
-      badge.textContent = stampDef.label;
-      el.appendChild(badge);
+      // アイコンのみ（ラベルなし）
+      const icon = document.createElement('span');
+      icon.className = 'text-base leading-none mt-1';
+      icon.textContent = stampDef.label.split(' ')[0]; // 絵文字だけ
+      el.appendChild(icon);
     }
 
-    // 仕事の場合は実働時間を表示
+    // 仕事：実働時間
     if (stamp === 'work' && workMin > 0) {
       const timeLabel = document.createElement('span');
       timeLabel.className = 'text-[10px] leading-none opacity-90 mt-0.5 font-medium';
@@ -226,12 +228,12 @@ function renderCalendar() {
       el.appendChild(timeLabel);
     }
 
-    // メモ表示（あれば）
+    // メモあり：アイコンのみ表示
     if (entry?.memo) {
-      const memoEl = document.createElement('span');
-      memoEl.className = 'text-[9px] leading-tight opacity-90 mt-0.5 px-0.5 truncate w-full text-center';
-      memoEl.textContent = entry.memo;
-      el.appendChild(memoEl);
+      const memoIcon = document.createElement('span');
+      memoIcon.className = 'text-[10px] leading-none mt-0.5 opacity-80';
+      memoIcon.textContent = '📋';
+      el.appendChild(memoIcon);
     }
 
     // 右上バツ印削除ボタン（登録済みの日のみ表示）
@@ -271,9 +273,9 @@ function renderCalendar() {
       applyDragDay(d);
     }, { passive: true });
 
-    // クリック：ドラッグなし（1マスのみ）→ モーダルを開く
+    // クリック：ドラッグなし（1マスのみ）→ プレビューを開く
     el.addEventListener('click', e => {
-      if (dragDays.size <= 1 && !e._fromDrag) openModal(d);
+      if (dragDays.size <= 1 && !e._fromDrag) openPreview(d);
     });
 
     grid.appendChild(el);
@@ -296,10 +298,10 @@ function renderCalendar() {
   // タッチ終了
   grid.addEventListener('touchend', () => {
     if (dragDays.size <= 1 && dragStartDay !== null) {
-      // タップ扱い → モーダルを開く
+      // タップ扱い → プレビューを開く
       const tappedDay = dragStartDay;
       endDrag();
-      openModal(tappedDay);
+      openPreview(tappedDay);
       return;
     }
     endDrag();
@@ -310,10 +312,10 @@ function renderCalendar() {
 document.addEventListener('mouseup', e => {
   if (!isDragging) return;
   if (dragDays.size <= 1 && dragStartDay !== null) {
-    // クリック扱い → モーダルを開く
+    // クリック扱い → プレビューを開く
     const tappedDay = dragStartDay;
     endDrag();
-    openModal(tappedDay);
+    openPreview(tappedDay);
     return;
   }
   endDrag();
@@ -484,6 +486,68 @@ function syncSettingsToUI() {
   if (g('def-break'))   g('def-break').value    = settings.defBreak;
 }
 
+// ===== 日別プレビューシート =====
+let previewDay = null;
+
+function openPreview(d) {
+  previewDay = d;
+  const key   = dateKey(currentYear, currentMonth, d);
+  const entry = dayData[key];
+  const dateStr = `${currentYear}年${currentMonth}月${d}日`;
+
+  document.getElementById('preview-title').textContent = dateStr;
+
+  const body = document.getElementById('preview-body');
+  body.innerHTML = '';
+
+  if (!entry) {
+    // 未登録
+    body.innerHTML = '<p class="text-slate-400 text-center py-2">まだ登録がありません</p>';
+  } else {
+    const stampDef = STAMPS[entry.stamp];
+    const rows = [
+      ['スタンプ', stampDef ? stampDef.label : '—'],
+    ];
+    if (entry.stamp === 'work') {
+      rows.push(['開始', entry.start || '—']);
+      rows.push(['終了', entry.end   || '—']);
+      rows.push(['休憩', `${entry.breakMin ?? 0}分`]);
+      const wMin = calcWorkMin(entry);
+      if (wMin > 0) {
+        const wage = parseFloat(document.getElementById('wage-input')?.value ?? settings.wage) || 0;
+        const pay  = Math.round((wMin / 60) * wage);
+        rows.push(['実働', `${minToLabel(wMin)}  ≈  ¥${pay.toLocaleString('ja-JP')}`]);
+      }
+    }
+    if (entry.memo) rows.push(['メモ', entry.memo]);
+
+    rows.forEach(([label, val]) => {
+      const row = document.createElement('div');
+      row.className = 'flex justify-between items-center border-b border-slate-100 py-1.5';
+      row.innerHTML = `<span class="text-xs text-slate-400 font-medium">${label}</span><span class="text-sm font-semibold text-slate-700">${val}</span>`;
+      body.appendChild(row);
+    });
+  }
+
+  const preview = document.getElementById('day-preview');
+  preview.classList.remove('hidden');
+  preview.classList.add('flex');
+  const scrollY = window.scrollY;
+  document.body.style.top = `-${scrollY}px`;
+  document.body.classList.add('modal-open');
+}
+
+function closePreview() {
+  const preview = document.getElementById('day-preview');
+  preview.classList.add('hidden');
+  preview.classList.remove('flex');
+  const scrollY = Math.abs(parseInt(document.body.style.top || '0', 10));
+  document.body.classList.remove('modal-open');
+  document.body.style.top = '';
+  window.scrollTo(0, scrollY);
+  previewDay = null;
+}
+
 // ===== 日別編集モーダル =====
 function openModal(d) {
   const key    = dateKey(currentYear, currentMonth, d);
@@ -629,6 +693,23 @@ document.addEventListener('DOMContentLoaded', () => {
   // Enterキーでも反映
   document.getElementById('day-input').addEventListener('keydown', e => {
     if (e.key === 'Enter') applyInput();
+  });
+
+  // プレビューイベント
+  document.getElementById('preview-close').addEventListener('click', closePreview);
+  document.getElementById('preview-edit').addEventListener('click', () => {
+    const d = previewDay;
+    closePreview();
+    openModal(d);
+  });
+  document.getElementById('preview-delete').addEventListener('click', () => {
+    if (previewDay === null) return;
+    const d = previewDay;
+    closePreview();
+    deleteDay(d);
+  });
+  document.getElementById('day-preview').addEventListener('click', e => {
+    if (e.target === e.currentTarget) closePreview();
   });
 
   // モーダルイベント

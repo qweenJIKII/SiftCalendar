@@ -225,6 +225,32 @@
     </div>
   </div>
 
+  <!-- ===== 日別プレビューシート ===== -->
+  <div id="day-preview"
+    class="hidden fixed inset-0 z-40 bg-black/40 items-end lg:items-center justify-center">
+    <div class="bg-white w-full lg:max-w-sm lg:rounded-2xl rounded-t-2xl shadow-xl p-5 space-y-4">
+      <!-- ヘッダー -->
+      <div class="flex items-center justify-between">
+        <h3 id="preview-title" class="text-base font-bold text-slate-700"></h3>
+        <button id="preview-close"
+          class="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 transition text-xl leading-none">✕</button>
+      </div>
+      <!-- 状態表示 -->
+      <div id="preview-body" class="space-y-2 text-sm text-slate-700"></div>
+      <!-- ボタン行 -->
+      <div class="flex gap-2 pt-1">
+        <button id="preview-delete"
+          class="flex-1 border border-red-300 text-red-500 font-semibold text-sm py-3 rounded-xl transition-colors hover:bg-red-50">
+          削除
+        </button>
+        <button id="preview-edit"
+          class="flex-[2] bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm py-3 rounded-xl transition-colors shadow-sm">
+          ✏️ 編集
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- ===== 日別編集モーダル ===== -->
   <div id="day-modal"
     class="hidden fixed inset-0 z-40 bg-black/40 items-end lg:items-center justify-center">
