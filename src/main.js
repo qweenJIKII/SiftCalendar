@@ -1,3 +1,91 @@
+// ===== Firebase 初期化 =====
+const firebaseConfig = {
+  apiKey:            'AIzaSyD49GvhnC-8FmcuxHakPy1TB5KbskT_upA',
+  authDomain:        'siftcalendar-ea2d7.firebaseapp.com',
+  databaseURL:       'https://siftcalendar-ea2d7-default-rtdb.asia-southeast1.firebasedatabase.app',
+  projectId:         'siftcalendar-ea2d7',
+  storageBucket:     'siftcalendar-ea2d7.firebasestorage.app',
+  messagingSenderId: '273192998245',
+  appId:             '1:273192998245:web:728b70c9e938ed0a933d8c',
+};
+firebase.initializeApp(firebaseConfig);
+const fbAuth = firebase.auth();
+const fbDb   = firebase.database();
+
+let fbUid        = null;   // ログイン中ユーザーのUID
+let fbDbRef      = null;   // users/{uid}/dayData への参照
+let fbListening  = false;  // onValue リスナー登録済みフラグ
+
+// 認証状態の変化を監視
+function initFirebaseAuth() {
+  fbAuth.onAuthStateChanged(user => {
+    const bar        = document.getElementById('auth-bar');
+    const loginBtn   = document.getElementById('auth-login-btn');
+    const logoutBtn  = document.getElementById('auth-logout-btn');
+    const nameEl     = document.getElementById('auth-name');
+    const avatarEl   = document.getElementById('auth-avatar');
+    const syncBadge  = document.getElementById('auth-sync-badge');
+    const body       = document.getElementById('app-body');
+
+    bar.classList.remove('hidden');
+
+    if (user) {
+      fbUid = user.uid;
+      nameEl.textContent  = user.displayName || user.email;
+      if (user.photoURL) {
+        avatarEl.src = user.photoURL;
+        avatarEl.classList.remove('hidden');
+      }
+      loginBtn.classList.add('hidden');
+      logoutBtn.classList.remove('hidden');
+      syncBadge.classList.remove('hidden');
+      body.style.paddingTop = '44px';
+
+      // Realtime DB のリスナーを登録
+      fbDbRef = fbDb.ref(`users/${fbUid}/dayData`);
+      if (!fbListening) {
+        fbListening = true;
+        fbDbRef.on('value', snapshot => {
+          const remote = snapshot.val();
+          if (remote) {
+            dayData = remote;
+            // localStorageにもキャッシュ
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(dayData));
+          }
+          renderCalendar();
+          updateSidebar();
+        });
+      }
+      showToast(`${user.displayName} でログインしました`);
+    } else {
+      fbUid       = null;
+      fbDbRef     = null;
+      fbListening = false;
+      nameEl.textContent = 'ログインなし（ローカル保存）';
+      avatarEl.classList.add('hidden');
+      loginBtn.classList.remove('hidden');
+      logoutBtn.classList.add('hidden');
+      syncBadge.classList.add('hidden');
+      body.style.paddingTop = '44px';
+    }
+  });
+}
+
+// Googleログイン
+function signInWithGoogle() {
+  const provider = new firebase.auth.GoogleAuthProvider();
+  fbAuth.signInWithPopup(provider).catch(err => {
+    showToast('ログイン失敗: ' + err.message);
+  });
+}
+
+// ログアウト
+function signOut() {
+  if (fbDbRef) fbDbRef.off();
+  fbListening = false;
+  fbAuth.signOut();
+}
+
 // ===== 定数 =====
 const STORAGE_KEY    = 'sift_calendar_v3';
 const SETTINGS_KEY   = 'sift_settings_v3';
@@ -102,6 +190,8 @@ function loadData() {
 
 function saveData() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(dayData));
+  // ログイン中はFirebase DBにも書き込む
+  if (fbDbRef) fbDbRef.set(dayData).catch(e => console.warn('FB write:', e));
 }
 
 function loadSettings() {
@@ -882,6 +972,11 @@ document.addEventListener('DOMContentLoaded', () => {
   renderCalendar();
   updateSidebar();
   syncStampButtons();
+
+  // Firebase 認証初期化
+  initFirebaseAuth();
+  document.getElementById('auth-login-btn').addEventListener('click', signInWithGoogle);
+  document.getElementById('auth-logout-btn').addEventListener('click', signOut);
 
   document.getElementById('apply-btn').addEventListener('click', applyInput);
   document.getElementById('clear-btn').addEventListener('click', clearAll);

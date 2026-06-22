@@ -5,6 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>シフトカレンダー</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
   <style>
     #calendar-grid {
       display: grid;
@@ -44,7 +48,20 @@
     }
   </style>
 </head>
-<body class="min-h-screen bg-gradient-to-br from-slate-100 to-indigo-50 text-slate-800 pb-20 lg:pb-6">
+<body class="min-h-screen bg-gradient-to-br from-slate-100 to-indigo-50 text-slate-800 pb-20 lg:pb-6" id="app-body">
+
+  <!-- ログインバー -->
+  <div id="auth-bar" class="hidden fixed top-0 left-0 right-0 z-40 bg-white border-b border-slate-200 shadow-sm px-4 py-2 flex items-center justify-between gap-3">
+    <div class="flex items-center gap-2 min-w-0">
+      <img id="auth-avatar" src="" alt="" class="w-7 h-7 rounded-full hidden" />
+      <span id="auth-name" class="text-sm font-medium text-slate-700 truncate"></span>
+      <span id="auth-sync-badge" class="hidden text-[10px] bg-green-100 text-green-700 font-bold px-2 py-0.5 rounded-full">同期中</span>
+    </div>
+    <div class="flex gap-2 flex-shrink-0">
+      <button id="auth-login-btn" class="text-xs bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-3 py-1.5 rounded-lg transition-colors">Googleでログイン</button>
+      <button id="auth-logout-btn" class="hidden text-xs border border-slate-300 text-slate-500 hover:bg-slate-50 font-semibold px-3 py-1.5 rounded-lg transition-colors">ログアウト</button>
+    </div>
+  </div>
 
   <!-- トースト通知 -->
   <div id="toast"
