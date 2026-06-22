@@ -193,16 +193,31 @@ function renderCalendar() {
   });
 
   // 前月末マス（薄く表示）
+  const prevYear  = currentMonth === 1  ? currentYear - 1 : currentYear;
+  const prevMonth = currentMonth === 1  ? 12 : currentMonth - 1;
   for (let i = 0; i < startOffset; i++) {
     const prevDay = prevMonthDays - startOffset + 1 + i;
+    const prevKey = dateKey(prevYear, prevMonth, prevDay);
+    const prevEntry = dayData[prevKey] || null;
+    const prevStampDef = prevEntry?.stamp ? STAMPS[prevEntry.stamp] : null;
     const el = document.createElement('div');
     const dow = i % 7;
     const col = dow === 5 ? 'text-blue-300' : dow === 6 ? 'text-red-300' : 'text-slate-300';
-    el.className = `day-cell relative flex flex-col items-center justify-start pt-1 rounded-lg border border-slate-100 bg-slate-50 ${col} opacity-50 cursor-default select-none`;
+    el.className = `day-cell relative flex flex-col items-center justify-start pt-1 rounded-lg border bg-slate-50 ${col} opacity-60 cursor-pointer select-none ${
+      prevStampDef ? 'border-slate-200' : 'border-slate-100'
+    }`;
     const span = document.createElement('span');
     span.className = 'text-sm font-bold leading-none mt-0.5';
     span.textContent = prevDay;
     el.appendChild(span);
+    if (prevStampDef) {
+      const icon = document.createElement('span');
+      icon.className = 'text-base leading-none mt-1';
+      icon.textContent = prevStampDef.label.split(' ')[0];
+      el.appendChild(icon);
+    }
+    el.addEventListener('pointerdown', e => { e.preventDefault(); });
+    el.addEventListener('click', () => openPreview(prevDay, prevYear, prevMonth));
     grid.appendChild(el);
   }
 
@@ -350,17 +365,30 @@ function renderCalendar() {
 
   // 翌月頭マス（薄く表示）
   const lastDow = (startOffset + daysInMonth - 1) % 7; // 最終日の曜日(0=月,6=日)
+  const nextYear  = currentMonth === 12 ? currentYear + 1 : currentYear;
+  const nextMonth = currentMonth === 12 ? 1 : currentMonth + 1;
   const trailingCount = lastDow === 6 ? 0 : 6 - lastDow;
   for (let i = 0; i < trailingCount; i++) {
     const nextDay = i + 1;
+    const nextKey = dateKey(nextYear, nextMonth, nextDay);
+    const nextEntry = dayData[nextKey] || null;
+    const nextStampDef = nextEntry?.stamp ? STAMPS[nextEntry.stamp] : null;
     const dow = (lastDow + 1 + i) % 7;
     const col = dow === 5 ? 'text-blue-300' : dow === 6 ? 'text-red-300' : 'text-slate-300';
     const el = document.createElement('div');
-    el.className = `day-cell relative flex flex-col items-center justify-start pt-1 rounded-lg border border-slate-100 bg-slate-50 ${col} opacity-50 cursor-default select-none`;
+    el.className = `day-cell relative flex flex-col items-center justify-start pt-1 rounded-lg border bg-slate-50 ${col} opacity-60 cursor-pointer select-none ${nextStampDef ? 'border-slate-200' : 'border-slate-100'}`;
     const span = document.createElement('span');
     span.className = 'text-sm font-bold leading-none mt-0.5';
     span.textContent = nextDay;
     el.appendChild(span);
+    if (nextStampDef) {
+      const icon = document.createElement('span');
+      icon.className = 'text-base leading-none mt-1';
+      icon.textContent = nextStampDef.label.split(' ')[0];
+      el.appendChild(icon);
+    }
+    el.addEventListener('pointerdown', e => { e.preventDefault(); });
+    el.addEventListener('click', () => openPreview(nextDay, nextYear, nextMonth));
     grid.appendChild(el);
   }
 }
@@ -549,12 +577,16 @@ function syncSettingsToUI() {
 
 // ===== 日別プレビューシート =====
 let previewDay = null;
+let previewYear = null;
+let previewMonth = null;
 
-function openPreview(d) {
-  previewDay = d;
-  const key   = dateKey(currentYear, currentMonth, d);
+function openPreview(d, year = currentYear, month = currentMonth) {
+  previewDay   = d;
+  previewYear  = year;
+  previewMonth = month;
+  const key   = dateKey(year, month, d);
   const entry = dayData[key];
-  const dateStr = `${currentYear}年${currentMonth}月${d}日`;
+  const dateStr = `${year}年${month}月${d}日`;
 
   document.getElementById('preview-title').textContent = dateStr;
 
@@ -761,14 +793,23 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('preview-close').addEventListener('click', closePreview);
   document.getElementById('preview-edit').addEventListener('click', () => {
     const d = previewDay;
+    const y = previewYear;
+    const m = previewMonth;
     closePreview();
+    // 前後月の場合はそちらへ移動してから開く
+    if (y !== currentYear || m !== currentMonth) {
+      currentYear = y; currentMonth = m;
+      renderMonthTitle(); renderCalendar(); updateSidebar();
+    }
     openModal(d);
   });
   document.getElementById('preview-delete').addEventListener('click', () => {
     if (previewDay === null) return;
-    const d = previewDay;
+    const key = dateKey(previewYear, previewMonth, previewDay);
     closePreview();
-    deleteDay(d);
+    delete dayData[key];
+    saveData(); renderCalendar(); updateSidebar();
+    showToast('削除しました');
   });
   document.getElementById('day-preview').addEventListener('click', e => {
     if (e.target !== e.currentTarget) return;
