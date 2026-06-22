@@ -341,17 +341,18 @@ function renderCalendar() {
     if (isDragging) applyDragDay(d);
   });
 
-  // タッチ移動（距離閾値を超えてから別マスに入ったときだけドラッグ確定）
+  // タッチ移動（実際に別マスに入ったときだけドラッグ確定＆タイマーキャンセル）
   grid.addEventListener('touchmove', e => {
     if (!isDragPending) return;
     const t = e.touches[0];
     const dx = t.clientX - touchStartX;
     const dy = t.clientY - touchStartY;
     if (Math.sqrt(dx * dx + dy * dy) < DRAG_THRESHOLD) return;
-    if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
     const moved = dayFromTouch(t);
-    if (moved === null) return;
-    if (moved !== dragStartDay) startDragConfirmed();
+    if (moved === null || moved === dragStartDay) return;
+    // 別マスに入った → 長押しではなくドラッグ確定
+    if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+    startDragConfirmed();
     if (isDragging) applyDragDay(moved);
   }, { passive: true });
 
