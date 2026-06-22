@@ -20,10 +20,15 @@ let dayData = {};
 // settings: デフォルト勤務設定
 let settings = {
   wage:     1100,
-  defStart: '09:00',
-  defEnd:   '17:30',
+  defStart: '09:10',
+  defEnd:   '17:00',
   defBreak: 60,
 };
+
+// ===== ドラッグ選択 state =====
+let isDragging   = false;
+let dragDays     = new Set();
+let dragStartDay = null;
 
 // ===== ユーティリティ =====
 function dateKey(year, month, day) {
@@ -102,6 +107,50 @@ function parseDays(text) {
     if (n >= 1 && n <= daysInMonth) result.add(n);
   });
   return [...result].sort((a, b) => a - b);
+}
+
+// ===== ドラッグ選択：マスに適用 =====
+function applyDragDay(d) {
+  if (dragDays.has(d)) return;
+  dragDays.add(d);
+  const key = dateKey(currentYear, currentMonth, d);
+  const existing = dayData[key] || {};
+  dayData[key] = {
+    stamp:    activeStamp,
+    start:    existing.start    ?? settings.defStart,
+    end:      existing.end      ?? settings.defEnd,
+    breakMin: existing.breakMin ?? settings.defBreak,
+    memo:     existing.memo     ?? '',
+  };
+  // リアルタイムでそのマスだけ色更新
+  const cell = document.querySelector(`[data-day="${d}"]`);
+  if (cell) {
+    const s = STAMPS[activeStamp];
+    cell.className = cell.className
+      .replace(/bg-\S+/g, '').replace(/border-\S+/g, '').replace(/text-\S+/g, '')
+      .trim();
+    cell.classList.add(...`${s.bg} ${s.border} text-white shadow-md`.split(' '));
+  }
+}
+
+function endDrag() {
+  if (!isDragging) return;
+  isDragging = false;
+  if (dragDays.size > 0) {
+    saveData();
+    renderCalendar();
+    updateSidebar();
+    showToast(`${dragDays.size}日（${STAMPS[activeStamp].label}）を反映しました`);
+  }
+  dragDays.clear();
+  dragStartDay = null;
+}
+
+// タッチ座標からカレンダーマスの日を取得
+function dayFromTouch(touch) {
+  const el = document.elementFromPoint(touch.clientX, touch.clientY);
+  const cell = el?.closest('[data-day]');
+  return cell ? parseInt(cell.dataset.day, 10) : null;
 }
 
 // ===== カレンダー描画 =====
@@ -194,10 +243,71 @@ function renderCalendar() {
       el.appendChild(delBtn);
     }
 
-    el.addEventListener('click', () => openModal(d));
+    // ドラッグ開始（mousedown）
+    el.addEventListener('mousedown', e => {
+      if (e.button !== 0) return;
+      e.preventDefault();
+      isDragging = true;
+      dragDays.clear();
+      dragStartDay = d;
+      applyDragDay(d);
+    });
+
+    // タッチ開始
+    el.addEventListener('touchstart', e => {
+      isDragging = true;
+      dragDays.clear();
+      dragStartDay = d;
+      applyDragDay(d);
+    }, { passive: true });
+
+    // クリック：ドラッグなし（1マスのみ）→ モーダルを開く
+    el.addEventListener('click', e => {
+      if (dragDays.size <= 1 && !e._fromDrag) openModal(d);
+    });
+
     grid.appendChild(el);
   }
+
+  // グリッド全体でのmousemove/mouseup
+  grid.addEventListener('mousemove', e => {
+    if (!isDragging) return;
+    const cell = e.target.closest('[data-day]');
+    if (cell) applyDragDay(parseInt(cell.dataset.day, 10));
+  });
+
+  // タッチ移動
+  grid.addEventListener('touchmove', e => {
+    if (!isDragging) return;
+    const d = dayFromTouch(e.touches[0]);
+    if (d) applyDragDay(d);
+  }, { passive: true });
+
+  // タッチ終了
+  grid.addEventListener('touchend', () => {
+    if (dragDays.size <= 1 && dragStartDay !== null) {
+      // タップ扱い → モーダルを開く
+      const tappedDay = dragStartDay;
+      endDrag();
+      openModal(tappedDay);
+      return;
+    }
+    endDrag();
+  });
 }
+
+// mouseup はdocument全体で受け取る（グリッド外でも終了）
+document.addEventListener('mouseup', e => {
+  if (!isDragging) return;
+  if (dragDays.size <= 1 && dragStartDay !== null) {
+    // クリック扱い → モーダルを開く
+    const tappedDay = dragStartDay;
+    endDrag();
+    openModal(tappedDay);
+    return;
+  }
+  endDrag();
+});
 
 // ===== マス個別削除 =====
 function deleteDay(d) {
