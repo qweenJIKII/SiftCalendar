@@ -268,6 +268,7 @@ function startDragConfirmed() {
 // ===== ドラッグ選択：マスに適用 =====
 function applyDragDay(d) {
   if (dragDays.has(d)) return;
+  if (isPastDay(currentYear, currentMonth, d)) return; // 過去日はスキップ
   dragDays.add(d);
   const key = dateKey(currentYear, currentMonth, d);
   const existing = dayData[key] || {};
@@ -566,8 +567,27 @@ function renderCalendar() {
 }
 
 
+// ===== 過去日判定（仕事は終了時刻基準、それ以外は日付基準） =====
+function isPastDay(year, month, d) {
+  const key   = dateKey(year, month, d);
+  const entry = dayData[key];
+  const now   = new Date();
+  if (entry?.stamp === 'work') {
+    const endTime = entry.end || settings.defEnd;
+    const [eh, em] = endTime.split(':').map(Number);
+    return new Date(year, month - 1, d, eh, em) < now;
+  }
+  // 日付が今日より前（今日はOK）
+  return new Date(year, month - 1, d + 1) <= now &&
+         dateKey(year, month, d) < dateKey(now.getFullYear(), now.getMonth() + 1, now.getDate());
+}
+
 // ===== 1マス即座スタンプ入力 =====
 function applyStampSingle(d) {
+  if (isPastDay(currentYear, currentMonth, d)) {
+    showToast('過去の日は変更できません');
+    return;
+  }
   const key = dateKey(currentYear, currentMonth, d);
   const existing = dayData[key] || {};
   dayData[key] = {
@@ -618,9 +638,10 @@ function applyInput() {
     showToast('有効な日付が見つかりませんでした');
     return;
   }
-  days.forEach(d => {
+  const validDays = days.filter(d => !isPastDay(currentYear, currentMonth, d));
+  const skipped   = days.length - validDays.length;
+  validDays.forEach(d => {
     const key = dateKey(currentYear, currentMonth, d);
-    // 既存エントリの時間設定・メモは保持しつつスタンプ上書き
     const existing = dayData[key] || {};
     dayData[key] = {
       stamp:    activeStamp,
@@ -634,7 +655,10 @@ function applyInput() {
   renderCalendar();
   updateSidebar();
   document.getElementById('day-input').value = '';
-  showToast(`${days.length}日（${STAMPS[activeStamp].label}）を反映しました`);
+  const msg = skipped > 0
+    ? `${validDays.length}日反映（過去${skipped}日はスキップ）`
+    : `${validDays.length}日（${STAMPS[activeStamp].label}）を反映しました`;
+  showToast(msg);
 }
 
 // ===== 全クリア（表示月のみ） =====
