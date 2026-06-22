@@ -416,7 +416,7 @@ function renderCalendar() {
     dayNum.textContent = d;
     el.appendChild(dayNum);
 
-    if (stampDef) {
+    if (stamp === 'work') {
       const icon = document.createElement('span');
       icon.className = 'text-base leading-none mt-1';
       icon.textContent = stampDef.label.split(' ')[0];
