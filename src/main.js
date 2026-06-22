@@ -34,6 +34,8 @@ let suppressNextClick = false;
 let touchStartX       = 0;
 let touchStartY       = 0;
 const DRAG_THRESHOLD  = 12;
+let longPressTimer    = null;
+const LONG_PRESS_MS   = 500;
 
 // ===== ユーティリティ =====
 function dateKey(year, month, day) {
@@ -269,7 +271,7 @@ function renderCalendar() {
       el.appendChild(delBtn);
     }
 
-    // 押下開始（確定前）
+    // --- マウス操作 ---
     el.addEventListener('mousedown', e => {
       if (e.button !== 0) return;
       e.preventDefault();
@@ -277,8 +279,16 @@ function renderCalendar() {
       isDragging = false;
       dragDays.clear();
       dragStartDay = d;
+      // 長押しタイマー起動
+      longPressTimer = setTimeout(() => {
+        longPressTimer = null;
+        isDragPending = false;
+        dragStartDay = null;
+        openPreview(d);
+      }, LONG_PRESS_MS);
     });
 
+    // --- タッチ操作 ---
     el.addEventListener('touchstart', e => {
       isDragPending = true;
       isDragging = false;
@@ -286,9 +296,19 @@ function renderCalendar() {
       dragStartDay = d;
       touchStartX = e.touches[0].clientX;
       touchStartY = e.touches[0].clientY;
+      // 長押しタイマー起動
+      longPressTimer = setTimeout(() => {
+        longPressTimer = null;
+        isDragPending = false;
+        isDragging = false;
+        dragDays.clear();
+        dragStartDay = null;
+        suppressNextClick = true;
+        openPreview(d);
+      }, LONG_PRESS_MS);
     }, { passive: true });
 
-    // click（PC用・touchendで処理済みの場合はスキップ）
+    // click: PC用タップ（長押し・ドラッグでなければ即入力）
     el.addEventListener('click', () => {
       if (suppressNextClick) { suppressNextClick = false; return; }
     });
@@ -299,6 +319,7 @@ function renderCalendar() {
   // マウス移動：別マスに入ったらドラッグ確定
   grid.addEventListener('mousemove', e => {
     if (!isDragPending) return;
+    if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
     const cell = e.target.closest('[data-day]');
     if (!cell) return;
     const d = parseInt(cell.dataset.day, 10);
@@ -315,6 +336,7 @@ function renderCalendar() {
     const dx = t.clientX - touchStartX;
     const dy = t.clientY - touchStartY;
     if (Math.sqrt(dx * dx + dy * dy) < DRAG_THRESHOLD) return;
+    if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
     const moved = dayFromTouch(t);
     if (moved === null) return;
     if (moved !== dragStartDay) startDragConfirmed();
@@ -323,14 +345,16 @@ function renderCalendar() {
 
   // タッチ終了
   grid.addEventListener('touchend', () => {
-    if (!isDragPending) return;
+    if (!isDragPending && longPressTimer === null) return;
+    // 長押しタイマーキャンセル
+    if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
     if (!isDragging && dragStartDay !== null) {
-      // タップ扱い（ドラッグ未確定）→ プレビューを開く
+      // タップ：即座にスタンプ入力
       const tappedDay = dragStartDay;
       isDragPending = false;
       dragStartDay = null;
-      suppressNextClick = true;  // 直後のclickを無視
-      openPreview(tappedDay);
+      suppressNextClick = true;
+      applyStampSingle(tappedDay);
       return;
     }
     endDrag();
@@ -338,19 +362,36 @@ function renderCalendar() {
   });
 }
 
-// mouseup はdocument全体で受け取る（グリッド外でも終了）
+// mouseup はdocument全体で受け取る
 document.addEventListener('mouseup', () => {
+  if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
   if (!isDragPending) return;
   if (!isDragging && dragStartDay !== null) {
-    // クリック扱い（ドラッグ未確定）→ プレビューを開く
+    // クリック：即座にスタンプ入力
     const tappedDay = dragStartDay;
     isDragPending = false;
     dragStartDay = null;
-    openPreview(tappedDay);
+    applyStampSingle(tappedDay);
     return;
   }
   endDrag();
 });
+
+// ===== 1マス即座スタンプ入力 =====
+function applyStampSingle(d) {
+  const key = dateKey(currentYear, currentMonth, d);
+  const existing = dayData[key] || {};
+  dayData[key] = {
+    stamp:    activeStamp,
+    start:    existing.start    ?? settings.defStart,
+    end:      existing.end      ?? settings.defEnd,
+    breakMin: existing.breakMin ?? settings.defBreak,
+    memo:     existing.memo     ?? '',
+  };
+  saveData();
+  renderCalendar();
+  updateSidebar();
+}
 
 // ===== マス個別削除 =====
 function deleteDay(d) {
