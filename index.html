@@ -9,7 +9,7 @@
     #calendar-grid {
       display: grid;
       grid-template-columns: repeat(7, 1fr);
-      gap: 3px;
+      gap: 4px;
     }
     /* アコーディオン本体 */
     .accordion-body {
@@ -18,14 +18,17 @@
     .accordion-body.open {
       display: block;
     }
-    /* スマホ：カレンダーマスをaspect-ratioで高さ固定、内容ははみ出させない */
+    /* カレンダーマス共通：縦に十分な高さを確保 */
+    .day-cell {
+      min-height: 64px;
+      overflow: hidden;
+    }
+    /* スマホ：aspect-ratioで縦長固定 */
     @media (max-width: 1023px) {
       .day-cell {
-        aspect-ratio: 1 / 1.15;
+        aspect-ratio: 1 / 1.55;
         height: auto !important;
         min-height: 0 !important;
-        max-height: none;
-        overflow: hidden !important;
       }
     }
     /* モーダル表示中は背景スクロール禁止（iOS Safari対応） */

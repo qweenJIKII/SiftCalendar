@@ -192,7 +192,7 @@ function renderCalendar() {
     const workMin = entry ? calcWorkMin(entry) : 0;
 
     const el = document.createElement('div');
-    let cls = 'day-cell relative flex flex-col items-center justify-start pt-1 h-16 rounded-lg border cursor-pointer select-none overflow-hidden transition-all duration-150 ';
+    let cls = 'day-cell relative flex flex-col items-center justify-start pt-1 rounded-lg border cursor-pointer select-none transition-all duration-150 ';
 
     if (stampDef) {
       cls += `${stampDef.bg} ${stampDef.border} text-white shadow-md`;
@@ -207,13 +207,13 @@ function renderCalendar() {
     el.dataset.day = d;
 
     const dayNum = document.createElement('span');
-    dayNum.className = 'text-sm font-semibold leading-none';
+    dayNum.className = 'text-sm font-bold leading-none mt-0.5';
     dayNum.textContent = d;
     el.appendChild(dayNum);
 
     if (stampDef) {
       const badge = document.createElement('span');
-      badge.className = 'text-[10px] leading-tight text-center px-0.5 mt-0.5';
+      badge.className = 'text-[10px] leading-tight text-center px-0.5 mt-1';
       badge.textContent = stampDef.label;
       el.appendChild(badge);
     }
@@ -221,7 +221,7 @@ function renderCalendar() {
     // 仕事の場合は実働時間を表示
     if (stamp === 'work' && workMin > 0) {
       const timeLabel = document.createElement('span');
-      timeLabel.className = 'text-[9px] leading-none opacity-90 mt-0.5';
+      timeLabel.className = 'text-[10px] leading-none opacity-90 mt-0.5 font-medium';
       timeLabel.textContent = minToLabel(workMin);
       el.appendChild(timeLabel);
     }
@@ -229,7 +229,7 @@ function renderCalendar() {
     // メモ表示（あれば）
     if (entry?.memo) {
       const memoEl = document.createElement('span');
-      memoEl.className = 'text-[8px] leading-none opacity-90 mt-0.5 px-0.5 truncate w-full text-center';
+      memoEl.className = 'text-[9px] leading-tight opacity-90 mt-0.5 px-0.5 truncate w-full text-center';
       memoEl.textContent = entry.memo;
       el.appendChild(memoEl);
     }
