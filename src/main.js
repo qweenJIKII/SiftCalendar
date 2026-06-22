@@ -18,6 +18,13 @@ let fbListening  = false;  // onValue リスナー登録済みフラグ
 
 // 認証状態の変化を監視
 function initFirebaseAuth() {
+  // スマホのリダイレクトログイン結果を処理
+  fbAuth.getRedirectResult().catch(err => {
+    if (err.code !== 'auth/no-current-user') {
+      showToast('ログイン失敗: ' + err.message);
+    }
+  });
+
   fbAuth.onAuthStateChanged(user => {
     const bar        = document.getElementById('auth-bar');
     const loginBtn   = document.getElementById('auth-login-btn');
@@ -71,12 +78,19 @@ function initFirebaseAuth() {
   });
 }
 
-// Googleログイン
+// Googleログイン（スマホはリダイレクト、PCはポップアップ）
 function signInWithGoogle() {
   const provider = new firebase.auth.GoogleAuthProvider();
-  fbAuth.signInWithPopup(provider).catch(err => {
-    showToast('ログイン失敗: ' + err.message);
-  });
+  const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+  if (isMobile) {
+    fbAuth.signInWithRedirect(provider).catch(err => {
+      showToast('ログイン失敗: ' + err.message);
+    });
+  } else {
+    fbAuth.signInWithPopup(provider).catch(err => {
+      showToast('ログイン失敗: ' + err.message);
+    });
+  }
 }
 
 // ログアウト
