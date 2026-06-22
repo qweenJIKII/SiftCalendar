@@ -178,9 +178,10 @@ function renderCalendar() {
   const grid = document.getElementById('calendar-grid');
   grid.innerHTML = '';
 
-  const firstDay    = new Date(currentYear, currentMonth - 1, 1).getDay();
-  const startOffset = firstDay === 0 ? 6 : firstDay - 1;
-  const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
+  const firstDay      = new Date(currentYear, currentMonth - 1, 1).getDay();
+  const startOffset   = firstDay === 0 ? 6 : firstDay - 1;
+  const daysInMonth   = new Date(currentYear, currentMonth, 0).getDate();
+  const prevMonthDays = new Date(currentYear, currentMonth - 1, 0).getDate();
 
   ['月','火','水','木','金','土','日'].forEach((h, i) => {
     const el = document.createElement('div');
@@ -191,9 +192,17 @@ function renderCalendar() {
     grid.appendChild(el);
   });
 
+  // 前月末マス（薄く表示）
   for (let i = 0; i < startOffset; i++) {
+    const prevDay = prevMonthDays - startOffset + 1 + i;
     const el = document.createElement('div');
-    el.className = 'rounded';
+    const dow = i % 7;
+    const col = dow === 5 ? 'text-blue-300' : dow === 6 ? 'text-red-300' : 'text-slate-300';
+    el.className = `day-cell relative flex flex-col items-center justify-start pt-1 rounded-lg border border-slate-100 bg-slate-50 ${col} opacity-50 cursor-default select-none`;
+    const span = document.createElement('span');
+    span.className = 'text-sm font-bold leading-none mt-0.5';
+    span.textContent = prevDay;
+    el.appendChild(span);
     grid.appendChild(el);
   }
 
@@ -338,6 +347,22 @@ function renderCalendar() {
     if (isDragging) endDrag();
     isDragPending = false;
   });
+
+  // 翌月頭マス（薄く表示）
+  const lastDow = (startOffset + daysInMonth - 1) % 7; // 最終日の曜日(0=月,6=日)
+  const trailingCount = lastDow === 6 ? 0 : 6 - lastDow;
+  for (let i = 0; i < trailingCount; i++) {
+    const nextDay = i + 1;
+    const dow = (lastDow + 1 + i) % 7;
+    const col = dow === 5 ? 'text-blue-300' : dow === 6 ? 'text-red-300' : 'text-slate-300';
+    const el = document.createElement('div');
+    el.className = `day-cell relative flex flex-col items-center justify-start pt-1 rounded-lg border border-slate-100 bg-slate-50 ${col} opacity-50 cursor-default select-none`;
+    const span = document.createElement('span');
+    span.className = 'text-sm font-bold leading-none mt-0.5';
+    span.textContent = nextDay;
+    el.appendChild(span);
+    grid.appendChild(el);
+  }
 }
 
 
