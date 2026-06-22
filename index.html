@@ -205,6 +205,15 @@
               class="w-full border border-red-300 text-red-500 hover:bg-red-50 active:bg-red-100 font-semibold text-sm py-2.5 rounded-lg transition-colors">
               表示月のシフトをクリア
             </button>
+            <!-- PCのみ表示 -->
+            <div class="hidden lg:block">
+              <button id="export-ics-btn"
+                class="w-full flex items-center justify-center gap-2 bg-blue-50 border border-blue-300 text-blue-600 hover:bg-blue-100 active:bg-blue-200 font-semibold text-sm py-2.5 rounded-lg transition-colors">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                Googleカレンダーへエクスポート
+              </button>
+              <p class="text-[11px] text-slate-400 text-center mt-1">表示月の.icsファイルをダウンロード</p>
+            </div>
             <p class="text-xs text-slate-400 text-center">日付マスをクリックで個別編集</p>
           </div>
         </div>

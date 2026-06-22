@@ -800,6 +800,79 @@ function deleteModal() {
   showToast('削除しました');
 }
 
+// ===== Googleカレンダー用 iCal エクスポート =====
+function exportIcs() {
+  const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
+  const pad = n => String(n).padStart(2, '0');
+  const fmtDt = (y, mo, d, h, m) =>
+    `${y}${pad(mo)}${pad(d)}T${pad(h)}${pad(m)}00`;
+
+  let events = '';
+  for (let d = 1; d <= daysInMonth; d++) {
+    const key   = dateKey(currentYear, currentMonth, d);
+    const entry = dayData[key];
+    if (!entry) continue;
+    const stampDef = STAMPS[entry.stamp];
+    const label    = stampDef ? stampDef.label : entry.stamp;
+
+    let dtStart, dtEnd;
+    if (entry.stamp === 'work') {
+      const [sh, sm] = (entry.start || settings.defStart).split(':').map(Number);
+      const [eh, em] = (entry.end   || settings.defEnd  ).split(':').map(Number);
+      dtStart = fmtDt(currentYear, currentMonth, d, sh, sm);
+      dtEnd   = fmtDt(currentYear, currentMonth, d, eh, em);
+    } else {
+      // 終日イベント
+      const next = new Date(currentYear, currentMonth - 1, d + 1);
+      dtStart = `${currentYear}${pad(currentMonth)}${pad(d)}`;
+      dtEnd   = `${next.getFullYear()}${pad(next.getMonth()+1)}${pad(next.getDate())}`;
+      events += [
+        'BEGIN:VEVENT',
+        `DTSTART;VALUE=DATE:${dtStart}`,
+        `DTEND;VALUE=DATE:${dtEnd}`,
+        `SUMMARY:${label}`,
+        entry.memo ? `DESCRIPTION:${entry.memo.replace(/\n/g, '\\n')}` : '',
+        'END:VEVENT',
+      ].filter(Boolean).join('\r\n') + '\r\n';
+      continue;
+    }
+    const wMin = calcWorkMin(entry);
+    const desc = [
+      `実働: ${minToLabel(wMin)}`,
+      entry.memo || '',
+    ].filter(Boolean).join('\\n');
+    events += [
+      'BEGIN:VEVENT',
+      `DTSTART:${dtStart}`,
+      `DTEND:${dtEnd}`,
+      `SUMMARY:${label}`,
+      `DESCRIPTION:${desc}`,
+      'END:VEVENT',
+    ].join('\r\n') + '\r\n';
+  }
+
+  if (!events) { showToast('エクスポートするデータがありません'); return; }
+
+  const ics = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//SiftCalendar//JP',
+    'CALSCALE:GREGORIAN',
+    'METHOD:PUBLISH',
+    events.trimEnd(),
+    'END:VCALENDAR',
+  ].join('\r\n');
+
+  const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = `sift_${currentYear}_${pad(currentMonth)}.ics`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast(`${currentYear}年${currentMonth}月のicsをダウンロードしました`);
+}
+
 // ===== 初期化 =====
 document.addEventListener('DOMContentLoaded', () => {
   loadSettings();
@@ -812,6 +885,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.getElementById('apply-btn').addEventListener('click', applyInput);
   document.getElementById('clear-btn').addEventListener('click', clearAll);
+  document.getElementById('export-ics-btn')?.addEventListener('click', exportIcs);
   document.getElementById('prev-month').addEventListener('click', () => changeMonth(-1));
   document.getElementById('next-month').addEventListener('click', () => changeMonth(+1));
 
